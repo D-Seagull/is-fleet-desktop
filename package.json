@@ -1,0 +1,15 @@
+{
+  "name": "is-fleet-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "IS Fleet desktop shell (Tauri) — wraps the web app in a native window with tray + background running.",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icon": "tauri icon"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
