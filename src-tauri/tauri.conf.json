@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.dseadull.isfleet",
   "build": {
-    "frontendDist": "https://is-fleet-frontend.vercel.app",
-    "devUrl": "https://is-fleet-frontend.vercel.app"
+    "frontendDist": "https://app.isfleet.eu",
+    "devUrl": "http://localhost:3000"
   },
   "app": {
     "withGlobalTauri": true,

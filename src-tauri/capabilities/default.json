@@ -3,5 +3,12 @@
   "identifier": "default",
   "description": "Capabilities for the IS Fleet desktop shell.",
   "windows": ["main"],
+  "remote": {
+    "urls": [
+      "https://app.isfleet.eu",
+      "https://*.vercel.app",
+      "http://localhost:3000"
+    ]
+  },
   "permissions": ["core:default", "notification:default"]
 }
