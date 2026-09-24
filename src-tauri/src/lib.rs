@@ -68,20 +68,13 @@ pub fn run() {
                 });
             }
 
-            // Shell version (from tauri.conf.json) in the title bar and tray
-            // tooltip, so it's visible which build is installed.
-            let title = format!("IS Fleet v{}", app.package_info().version);
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_title(&title);
-            }
-
             // ── System tray ──────────────────────────────────────────────
             let show = MenuItem::with_id(app, "show", "Open IS Fleet", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
 
             TrayIconBuilder::with_id("main-tray")
-                .tooltip(&title)
+                .tooltip("IS Fleet")
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .show_menu_on_left_click(false)
