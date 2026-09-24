@@ -18,6 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A BOM (Windows editors / PowerShell add it) breaks Tauri's JSON parser
+      # deep inside the build; catch it here with a readable message.
+      - name: Check tauri.conf.json has no BOM
+        shell: bash
+        run: |
+          if head -c3 src-tauri/tauri.conf.json | grep -q $'\xEF\xBB\xBF'; then
+            echo "::error::src-tauri/tauri.conf.json is saved as 'UTF-8 with BOM'. Re-save it as plain UTF-8."
+            exit 1
+          fi
+
       # Manual run with a version that was already released = forgot the bump.
       - name: Check version was bumped
         if: github.event_name == 'workflow_dispatch'
