@@ -13,12 +13,61 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
+/// Check GitHub Releases for a newer shell, download it in the background,
+/// then ask before restarting. Lives in Rust on purpose: the page is loaded
+/// from the web, so JS would also run in plain browsers.
+#[cfg(desktop)]
+async fn check_for_update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+    use tauri_plugin_updater::UpdaterExt;
+
+    let Some(update) = app.updater()?.check().await? else {
+        return Ok(());
+    };
+    let bytes = update.download(|_, _| {}, || {}).await?;
+
+    let handle = app.clone();
+    app.dialog()
+        .message(format!(
+            "IS Fleet {} is ready to install. Restart now?",
+            update.version
+        ))
+        .title("Update available")
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Restart".into(),
+            "Later".into(),
+        ))
+        .show(move |restart| {
+            if !restart {
+                return;
+            }
+            // On Windows this launches the installer and exits the process.
+            match update.install(&bytes) {
+                Ok(()) => handle.restart(),
+                Err(e) => eprintln!("[updater] install failed: {e}"),
+            }
+        });
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         // Lets the web page raise native OS notifications for new messages.
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            #[cfg(desktop)]
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = check_for_update(handle).await {
+                        eprintln!("[updater] {e}");
+                    }
+                });
+            }
+
             // ── System tray ──────────────────────────────────────────────
             let show = MenuItem::with_id(app, "show", "Open IS Fleet", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
