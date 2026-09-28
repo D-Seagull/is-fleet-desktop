@@ -10,5 +10,9 @@
       "http://localhost:3000"
     ]
   },
-  "permissions": ["core:default", "notification:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-overlay-icon",
+    "notification:default"
+  ]
 }
