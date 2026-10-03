@@ -12,6 +12,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "IS Fleet",
         "width": 1280,
         "height": 800,
