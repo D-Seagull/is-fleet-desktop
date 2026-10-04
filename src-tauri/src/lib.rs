@@ -1,11 +1,14 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    webview::DownloadEvent,
+    Manager, WebviewWindowBuilder, WindowEvent,
 };
 
+mod notify;
+
 /// Bring the main window back to the foreground.
-fn show_main(app: &tauri::AppHandle) {
+pub(crate) fn show_main(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
@@ -52,12 +55,54 @@ async fn check_for_update(app: tauri::AppHandle) -> tauri_plugin_updater::Result
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Must be the first plugin: a second launch (Start menu, or a click on an
+    // older toast from the notification centre) just brings this instance
+    // back instead of opening another copy.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        show_main(app);
+    }));
+    builder
         // Lets the web page raise native OS notifications for new messages.
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Windows toasts with a working click (see notify.rs).
+        .invoke_handler(tauri::generate_handler![
+            notify::show_notification,
+            notify::reveal_download
+        ])
         .setup(|app| {
+            // ── Main window ──────────────────────────────────────────────
+            // Built here (tauri.conf.json has it with "create": false) because
+            // the download handler can only be attached while building it.
+            // Downloads go to the user's Downloads folder, then a toast says
+            // so; clicking it reveals the file.
+            let window_config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|w| w.label == "main")
+                .cloned()
+                .expect("main window config");
+            let downloads = app.handle().clone();
+            WebviewWindowBuilder::from_config(app.handle(), &window_config)?
+                .on_download(move |_webview, event| {
+                    match event {
+                        DownloadEvent::Requested { url, destination } => {
+                            notify::download_requested(&downloads, &url, destination)
+                        }
+                        DownloadEvent::Finished { url, path, success } => {
+                            notify::download_finished(&downloads, &url, path, success)
+                        }
+                        _ => {}
+                    }
+                    true // allow every download
+                })
+                .build()?;
+
             #[cfg(desktop)]
             {
                 let handle = app.handle().clone();

@@ -13,6 +13,8 @@
   "permissions": [
     "core:default",
     "core:window:allow-set-overlay-icon",
+    "allow-show-notification",
+    "allow-reveal-download",
     "notification:default"
   ]
 }
