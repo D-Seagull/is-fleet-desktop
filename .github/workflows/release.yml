@@ -1,7 +1,8 @@
 # Builds + signs the Windows installer and publishes a GitHub Release with
 # latest.json, which installed apps poll for updates. Two ways to start it:
 #   - Actions → Release → Run workflow (on main): tag is taken from
-#     "version" in tauri.conf.json and created automatically
+#     "version" in package.json (tauri.conf.json points there) and created
+#     automatically. Bump with: npm version <x.y.z> --no-git-tag-version
 #   - push a tag like v0.2.0 by hand
 name: Release
 
@@ -33,9 +34,9 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
-          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          VERSION=$(node -p "require('./package.json').version")
           if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
-            echo "::error::v$VERSION is already released. Bump \"version\" in src-tauri/tauri.conf.json first."
+            echo "::error::v$VERSION is already released. Bump it first: npm version <x.y.z> --no-git-tag-version"
             exit 1
           fi
 
@@ -58,7 +59,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          # __VERSION__ is replaced with "version" from tauri.conf.json, so the
+          # __VERSION__ is the app version (package.json via tauri.conf.json), so the
           # tag always matches what the updater compares against.
           tagName: v__VERSION__
           releaseName: 'IS Fleet v__VERSION__'

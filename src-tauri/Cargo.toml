@@ -1,6 +1,8 @@
 [package]
 name = "is-fleet-desktop"
-version = "0.2.3"
+# Not the app version — that lives in package.json (tauri.conf.json points
+# there). Kept in step only for tidiness; it changes nothing if it lags.
+version = "0.2.4"
 description = "IS Fleet desktop shell"
 edition = "2021"
 
