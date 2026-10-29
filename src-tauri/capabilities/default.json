@@ -6,7 +6,6 @@
   "remote": {
     "urls": [
       "https://app.isfleet.eu",
-      "https://*.vercel.app",
       "http://localhost:3000"
     ]
   },
