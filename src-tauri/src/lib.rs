@@ -2,8 +2,9 @@ use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     webview::DownloadEvent,
-    Manager, WebviewWindowBuilder, WindowEvent,
+    Manager, Url, WebviewWindowBuilder, WindowEvent,
 };
+use tauri_plugin_opener::OpenerExt;
 
 mod notify;
 
@@ -53,6 +54,49 @@ async fn check_for_update(app: tauri::AppHandle) -> tauri_plugin_updater::Result
     Ok(())
 }
 
+/// Origins the main window may show: the web app it wraps (`frontendDist`)
+/// and, in dev builds, the local dev server (`devUrl`). Read from
+/// tauri.conf.json so the domain lives in one place.
+fn app_origins(app: &tauri::App) -> Vec<String> {
+    let build = &app.config().build;
+    let mut urls: Vec<&Url> = Vec::new();
+    if let Some(tauri::utils::config::FrontendDist::Url(u)) = &build.frontend_dist {
+        urls.push(u);
+    }
+    if cfg!(debug_assertions) {
+        if let Some(u) = &build.dev_url {
+            urls.push(u);
+        }
+    }
+    urls.iter().map(|u| u.origin().ascii_serialization()).collect()
+}
+
+/// Navigation guard for the main window. Our own pages load in place; file
+/// downloads (the page navigates to a signed Supabase Storage URL, which the
+/// download handler then saves) pass too. Anything else — a link in a chat
+/// message, a redirect — opens in the system browser instead, so a foreign
+/// page never runs inside the shell next to its native commands.
+fn allow_navigation(app: &tauri::AppHandle, origins: &[String], url: &Url) -> bool {
+    match url.scheme() {
+        // Internal webview pages (blank/new tab, blob/data previews).
+        "about" | "blob" | "data" => return true,
+        "http" | "https" => {}
+        // mailto:, tel:, etc. → the OS handler.
+        _ => {
+            let _ = app.opener().open_url(url.as_str(), None::<&str>);
+            return false;
+        }
+    }
+    if origins.contains(&url.origin().ascii_serialization()) {
+        return true;
+    }
+    if url.scheme() == "https" && url.path().starts_with("/storage/v1/object/") {
+        return true;
+    }
+    let _ = app.opener().open_url(url.as_str(), None::<&str>);
+    false
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -67,6 +111,9 @@ pub fn run() {
         // Lets the web page raise native OS notifications for new messages.
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        // Rust-side only (no JS permission): opens foreign links in the
+        // system browser from the navigation guard.
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         // Windows toasts with a working click (see notify.rs).
         .invoke_handler(tauri::generate_handler![
@@ -88,7 +135,10 @@ pub fn run() {
                 .cloned()
                 .expect("main window config");
             let downloads = app.handle().clone();
+            let nav_app = app.handle().clone();
+            let origins = app_origins(app);
             WebviewWindowBuilder::from_config(app.handle(), &window_config)?
+                .on_navigation(move |url| allow_navigation(&nav_app, &origins, url))
                 .on_download(move |_webview, event| {
                     match event {
                         DownloadEvent::Requested { url, destination } => {
