@@ -67,3 +67,16 @@ jobs:
           # Must not be a draft: the updater reads releases/latest, which skips drafts.
           releaseDraft: false
           prerelease: false
+
+      # The website's "Download for Windows" button points at
+      # releases/latest/download/IS-Fleet-Setup.exe: the same installer under a name that
+      # doesn't change between versions, so the link always serves the newest one.
+      - name: Upload IS-Fleet-Setup.exe
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          SETUP=$(ls src-tauri/target/release/bundle/nsis/*_x64-setup.exe)
+          cp "$SETUP" IS-Fleet-Setup.exe
+          gh release upload "v$VERSION" IS-Fleet-Setup.exe --clobber
